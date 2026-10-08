@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>UAV Field Operations Dashboard</title>
+
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+        }
+
+        header {
+            background: #111827;
+            color: white;
+            padding: 18px 25px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .card p {
+            font-size: 26px;
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+
+        #map {
+            height: 500px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f9fafb;
+        }
+
+        @media (max-width: 700px) {
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            #map {
+                height: 400px;
+            }
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<header>
+
+    <h1>UAV Field Operations Dashboard</h1>
+
+</header>
+
+<div class="container">
+
+    <div class="stats">
+
+        <div class="card">
+            <h3>Total GPS Points</h3>
+            <p id="totalPoints">-</p>
+        </div>
+
+        <div class="card">
+            <h3>Devices</h3>
+            <p id="devices">-</p>
+        </div>
+
+        <div class="card">
+            <h3>Latest Record</h3>
+            <p id="latestRecord">-</p>
+        </div>
+
+    </div>
+
+    <div id="map"></div>
+
+    <div class="card">
+
+        <h2>GPS Records</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Device</th>
+                    <th>Date</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Altitude</th>
+                    <th>Speed</th>
+                </tr>
+
+            </thead>
+
+            <tbody id="gpsTable">
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+const map = L.map('map').setView(
+    [9.0765, 7.3986],
+    12
+);
+
+L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+        attribution: '&copy; OpenStreetMap contributors'
+    }
+).addTo(map);
+
+
+async function loadDashboard() {
+
+    const gpsResponse =
+        await fetch('http://127.0.0.1:5000/api/gps');
+
+    const gpsData =
+        await gpsResponse.json();
+
+
+    const statsResponse =
+        await fetch('http://127.0.0.1:5000/api/stats');
+
+    const stats =
+        await statsResponse.json();
+
+
+    document.getElementById('totalPoints').textContent =
+        stats.total_points;
+
+    document.getElementById('devices').textContent =
+        stats.devices;
+
+
+    if (stats.last_record) {
+
+        document.getElementById('latestRecord').textContent =
+            new Date(stats.last_record).toLocaleTimeString();
+
+    }
+
+
+    const table =
+        document.getElementById('gpsTable');
+
+
+    gpsData.forEach(point => {
+
+        L.marker([
+            point.latitude,
+            point.longitude
+        ])
+        .addTo(map)
+        .bindPopup(`
+            <strong>${point.device_id}</strong><br>
+            Latitude: ${point.latitude}<br>
+            Longitude: ${point.longitude}<br>
+            Altitude: ${point.altitude} m<br>
+            Speed: ${point.speed}
+        `);
+
+
+        const row =
+            document.createElement('tr');
+
+        row.innerHTML = `
+            <td>${point.device_id}</td>
+            <td>${new Date(point.recorded_at).toLocaleString()}</td>
+            <td>${point.latitude}</td>
+            <td>${point.longitude}</td>
+            <td>${point.altitude}</td>
+            <td>${point.speed}</td>
+        `;
+
+        table.appendChild(row);
+
+    });
+
+}
+
+
+loadDashboard();
+
+</script>
+
+</body>
+
+</html>
